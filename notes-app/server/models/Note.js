@@ -2,6 +2,11 @@ const mongoose = require("mongoose");
 
 const noteSchema = new mongoose.Schema(
   {
+    user: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      required: [true, "User is required"],
+    },
     title: {
       type: String,
       required: [true, "Title is required"],
@@ -22,12 +27,13 @@ const noteSchema = new mongoose.Schema(
     },
   },
   {
-    timestamps: true, // Automatically adds createdAt and updatedAt
+    timestamps: true,
   }
 );
 
-// Add index for better performance
-noteSchema.index({ title: 1 });
+// Compound index for better performance when querying user's notes
+noteSchema.index({ user: 1, createdAt: -1 });
+noteSchema.index({ title: "text", description: "text" }); // For future search functionality
 
 const Note = mongoose.model("Note", noteSchema);
 

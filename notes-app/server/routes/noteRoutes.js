@@ -9,7 +9,11 @@ const {
   deleteNote,
 } = require("../controllers/noteController");
 
-// Routes
+const { protect } = require("../middleware/auth");
+
+// All note routes are protected
+router.use(protect);
+
 router.route("/")
   .get(getAllNotes)      // GET /api/notes
   .post(createNote);     // POST /api/notes
