@@ -170,119 +170,195 @@ const getHistory = async (req, res) => {
 const downloadResume = async (req, res) => {
   try {
     let userId;
+
     if (req.query.token) {
-      try { userId = jwt.verify(req.query.token, process.env.JWT_SECRET).id; }
-      catch { return res.status(401).json({ success: false, message: "Invalid token" }); }
+      try {
+        const decoded = jwt.verify(req.query.token, process.env.JWT_SECRET);
+        userId = decoded.id;
+      } catch (err) {
+        return res.status(401).json({ message: "Invalid or expired token" });
+      }
+    } else if (req.headers.authorization?.startsWith("Bearer ")) {
+      try {
+        const token = req.headers.authorization.split(" ")[1];
+        const decoded = jwt.verify(token, process.env.JWT_SECRET);
+        userId = decoded.id;
+      } catch (err) {
+        return res.status(401).json({ message: "Invalid token" });
+      }
     } else if (req.user) {
       userId = req.user._id;
     } else {
-      return res.status(401).json({ success: false, message: "Authentication required" });
+      return res.status(401).json({ message: "Authentication required" });
     }
 
     const resume = await Resume.findOne({ _id: req.params.id, user: userId });
-    if (!resume) return res.status(404).json({ success: false, message: "Resume not found" });
+    if (!resume) return res.status(404).json({ message: "Resume not found" });
 
-    const doc = new PDFDocument({ margins: { top: 50, bottom: 50, left: 60, right: 60 }, size: "A4" });
-    const filename = `${resume.fullName || "professional"}-resume.pdf`.replace(/\s+/g, "-").toLowerCase();
-    
+    // Create PDF
+    const doc = new PDFDocument({ 
+      margins: { top: 50, bottom: 50, left: 60, right: 60 },
+      size: "A4",
+      bufferPages: true 
+    });
+
+    const safeName = (resume.fullName || "professional").replace(/[^a-zA-Z0-9]/g, "-");
+    const filename = `${safeName}-resume.pdf`;
+
     res.setHeader("Content-Type", "application/pdf");
     res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
+
     doc.pipe(res);
 
-    if (resume.fullName) {
-      doc.fontSize(24).font("Helvetica-Bold").fillColor("#1a1a2e").text(resume.fullName, { align: "center" });
-    }
+    // ========== HEADER ==========
+    doc.font("Helvetica-Bold").fontSize(22).fillColor("#1a1a2e")
+       .text(resume.fullName || "Professional", { align: "center" });
+
     if (resume.title) {
-      doc.fontSize(12).font("Helvetica").fillColor("#555").text(resume.title, { align: "center" });
+      doc.font("Helvetica").fontSize(11).fillColor("#555555")
+         .text(resume.title, { align: "center" });
     }
-    
-    const contact = [resume.email, resume.phone, resume.location, resume.linkedIn].filter(Boolean).join("  |  ");
-    if (contact) {
-      doc.moveDown(0.5);
-      doc.fontSize(9).font("Helvetica").fillColor("#777").text(contact, { align: "center" });
+
+    // Contact line
+    const contactParts = [resume.email, resume.phone, resume.location, resume.linkedIn].filter(Boolean);
+    if (contactParts.length > 0) {
+      doc.moveDown(0.3);
+      doc.font("Helvetica").fontSize(8).fillColor("#777777")
+         .text(contactParts.join("  |  "), { align: "center" });
     }
-    
+
+    // ATS Score
     doc.moveDown(0.5);
-    doc.fontSize(9).font("Helvetica-Bold").fillColor("#4caf50").text(`🎯 ATS Score: ${resume.atsScore?.after || 0}%`, { align: "center" });
-    doc.moveDown(1);
-    doc.moveTo(60, doc.y).lineTo(535, doc.y).strokeColor("#ccc").stroke();
-    doc.moveDown(1);
+    doc.font("Helvetica-Bold").fontSize(9).fillColor("#4caf50")
+       .text(`ATS Score: ${resume.atsScore?.after || resume.atsScore || 0}%`, { align: "center" });
 
+    // Separator
+    doc.moveDown(0.8);
+    doc.moveTo(60, doc.y).lineTo(535, doc.y).strokeColor("#cccccc").lineWidth(1).stroke();
+    doc.moveDown(0.8);
+
+    // ========== PROFESSIONAL SUMMARY ==========
     if (resume.professionalSummary) {
-      doc.fontSize(13).font("Helvetica-Bold").fillColor("#1a1a2e").text("PROFESSIONAL SUMMARY");
-      doc.moveDown(0.3);
-      doc.moveTo(60, doc.y).lineTo(200, doc.y).strokeColor("#e94560").stroke();
-      doc.moveDown(0.5);
-      doc.fontSize(10).font("Helvetica").fillColor("#333").text(resume.professionalSummary, { width: 495, lineGap: 4 });
-      doc.moveDown(1);
+      doc.font("Helvetica-Bold").fontSize(12).fillColor("#1a1a2e")
+         .text("PROFESSIONAL SUMMARY");
+      doc.moveDown(0.2);
+      doc.moveTo(60, doc.y).lineTo(200, doc.y).strokeColor("#e94560").lineWidth(1.5).stroke();
+      doc.moveDown(0.4);
+      doc.font("Helvetica").fontSize(9.5).fillColor("#333333")
+         .text(resume.professionalSummary, { width: 495, lineGap: 4 });
+      doc.moveDown(0.8);
     }
 
-    if (resume.skills?.length > 0) {
-      doc.fontSize(13).font("Helvetica-Bold").fillColor("#1a1a2e").text("TECHNICAL SKILLS");
-      doc.moveDown(0.3);
-      doc.moveTo(60, doc.y).lineTo(180, doc.y).strokeColor("#e94560").stroke();
-      doc.moveDown(0.5);
-      doc.fontSize(10).font("Helvetica").fillColor("#333").text(resume.skills.join("  •  "), { width: 495, lineGap: 5 });
-      doc.moveDown(1);
+    // ========== SKILLS ==========
+    if (resume.skills && resume.skills.length > 0) {
+      doc.font("Helvetica-Bold").fontSize(12).fillColor("#1a1a2e")
+         .text("TECHNICAL SKILLS");
+      doc.moveDown(0.2);
+      doc.moveTo(60, doc.y).lineTo(180, doc.y).strokeColor("#e94560").lineWidth(1.5).stroke();
+      doc.moveDown(0.4);
+      doc.font("Helvetica").fontSize(9.5).fillColor("#333333")
+         .text(resume.skills.join("  |  "), { width: 495, lineGap: 5 });
+      doc.moveDown(0.8);
     }
 
-    if (resume.experience?.length > 0) {
-      doc.fontSize(13).font("Helvetica-Bold").fillColor("#1a1a2e").text("PROFESSIONAL EXPERIENCE");
-      doc.moveDown(0.3);
-      doc.moveTo(60, doc.y).lineTo(240, doc.y).strokeColor("#e94560").stroke();
-      doc.moveDown(0.7);
+    // ========== EXPERIENCE ==========
+    if (resume.experience && resume.experience.length > 0) {
+      doc.font("Helvetica-Bold").fontSize(12).fillColor("#1a1a2e")
+         .text("PROFESSIONAL EXPERIENCE");
+      doc.moveDown(0.2);
+      doc.moveTo(60, doc.y).lineTo(230, doc.y).strokeColor("#e94560").lineWidth(1.5).stroke();
+      doc.moveDown(0.5);
+
       for (const exp of resume.experience) {
-        doc.fontSize(11).font("Helvetica-Bold").fillColor("#1a1a2e").text(exp.title || "Position");
+        // Job title
+        doc.font("Helvetica-Bold").fontSize(10.5).fillColor("#1a1a2e")
+           .text(exp.title || "Position");
+
+        // Company and dates
         const companyLine = [exp.company, exp.dates].filter(Boolean).join("  |  ");
-        if (companyLine) doc.fontSize(10).font("Helvetica").fillColor("#e94560").text(companyLine);
-        doc.moveDown(0.3);
-        if (exp.achievements?.length > 0) {
+        if (companyLine) {
+          doc.font("Helvetica").fontSize(9.5).fillColor("#e94560")
+             .text(companyLine);
+        }
+
+        doc.moveDown(0.2);
+
+        // Achievements
+        if (exp.achievements && exp.achievements.length > 0) {
           for (const achievement of exp.achievements) {
-            doc.fontSize(10).font("Helvetica").fillColor("#333").text(`    ▸  ${achievement}`, { width: 480, lineGap: 3 });
+            doc.font("Helvetica").fontSize(9.5).fillColor("#333333")
+               .text(`    -  ${achievement}`, { width: 480, lineGap: 3, indent: 8 });
           }
         }
-        doc.moveDown(0.7);
+        doc.moveDown(0.5);
       }
     }
 
-    if (resume.education?.length > 0) {
-      doc.fontSize(13).font("Helvetica-Bold").fillColor("#1a1a2e").text("EDUCATION");
-      doc.moveDown(0.3);
-      doc.moveTo(60, doc.y).lineTo(160, doc.y).strokeColor("#e94560").stroke();
-      doc.moveDown(0.7);
+    // ========== EDUCATION ==========
+    if (resume.education && resume.education.length > 0) {
+      doc.font("Helvetica-Bold").fontSize(12).fillColor("#1a1a2e")
+         .text("EDUCATION");
+      doc.moveDown(0.2);
+      doc.moveTo(60, doc.y).lineTo(150, doc.y).strokeColor("#e94560").lineWidth(1.5).stroke();
+      doc.moveDown(0.4);
+
       for (const edu of resume.education) {
-        doc.fontSize(10).font("Helvetica-Bold").fillColor("#333").text(edu.degree || "");
-        doc.fontSize(10).font("Helvetica").fillColor("#666").text(`${edu.school || ""}  |  ${edu.year || ""}`);
+        doc.font("Helvetica-Bold").fontSize(9.5).fillColor("#333333")
+           .text(edu.degree || "");
+        const eduLine = [edu.school, edu.year].filter(Boolean).join("  |  ");
+        if (eduLine) {
+          doc.font("Helvetica").fontSize(9).fillColor("#666666")
+             .text(eduLine);
+        }
         doc.moveDown(0.3);
       }
     }
 
-    doc.moveDown(1.5);
-    doc.moveTo(60, doc.y).lineTo(535, doc.y).strokeColor("#e0e0e0").stroke();
-    doc.moveDown(0.5);
-    doc.fontSize(7).font("Helvetica").fillColor("#aaa").text("Generated by JobFit AI", { align: "center" });
+    // ========== CERTIFICATIONS ==========
+    if (resume.certifications && resume.certifications.length > 0) {
+      doc.moveDown(0.3);
+      doc.font("Helvetica-Bold").fontSize(12).fillColor("#1a1a2e")
+         .text("CERTIFICATIONS");
+      doc.moveDown(0.2);
+      doc.moveTo(60, doc.y).lineTo(200, doc.y).strokeColor("#e94560").lineWidth(1.5).stroke();
+      doc.moveDown(0.4);
+
+      for (const cert of resume.certifications) {
+        const certText = [cert.name, cert.issuer, cert.year].filter(Boolean).join(" - ");
+        doc.font("Helvetica").fontSize(9.5).fillColor("#333333")
+           .text(certText);
+        doc.moveDown(0.2);
+      }
+    }
+
+    // ========== FOOTER ==========
+    doc.moveDown(1);
+    doc.moveTo(60, doc.y).lineTo(535, doc.y).strokeColor("#e0e0e0").lineWidth(0.5).stroke();
+    doc.moveDown(0.3);
+    doc.font("Helvetica").fontSize(7).fillColor("#aaaaaa")
+       .text("Generated by JobFit AI - Resume Enhancement Tool", { align: "center" });
+
     doc.end();
-    console.log(`📥 PDF downloaded: ${filename}`);
+    console.log(`PDF sent: ${filename}`);
 
   } catch (error) {
-    console.error("❌ Download error:", error.message);
-    res.status(500).json({ success: false, message: "Error generating PDF" });
+    console.error("Download error:", error.message);
+    res.status(500).json({ message: "Error generating PDF" });
   }
 };
 
-// 🔴 DELETE RESUME
+// Delete resume
 const deleteResume = async (req, res) => {
   try {
     const resume = await Resume.findOneAndDelete({ _id: req.params.id, user: req.user._id });
     if (!resume) return res.status(404).json({ message: "Resume not found" });
-    console.log(`🗑️ Deleted: ${req.params.id}`);
     res.json({ success: true, message: "Deleted successfully" });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
 };
 
-// 🔴 RE-ENHANCE RESUME
+// Re-enhance resume
 const reEnhanceResume = async (req, res) => {
   try {
     const { companyUrl } = req.body;
