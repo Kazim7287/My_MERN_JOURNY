@@ -7,27 +7,24 @@ const {
   getResume,
   getHistory,
   downloadResume,
+  deleteResume,
+  reEnhanceResume,
 } = require("../controllers/resumeController");
-
-// Debug: Log what was imported
-console.log("Imported functions:", {
-  enhanceResume: typeof enhanceResume,
-  getResume: typeof getResume,
-  getHistory: typeof getHistory,
-  downloadResume: typeof downloadResume,
-});
 
 const upload = multer({
   storage: multer.memoryStorage(),
   limits: { fileSize: 10 * 1024 * 1024 },
 });
 
-// Protected routes
-router.post("/enhance", protect, upload.single("resume"), enhanceResume);
-router.get("/history", protect, getHistory);
-router.get("/:id", protect, getResume);
+// All routes require authentication
+router.use(protect);
 
-// Download route (no protect middleware)
+// CRUD Routes
+router.post("/enhance", upload.single("resume"), enhanceResume);
+router.get("/history", getHistory);
+router.get("/:id", getResume);
 router.get("/:id/download", downloadResume);
+router.delete("/:id", deleteResume);
+router.post("/:id/re-enhance", reEnhanceResume);
 
 module.exports = router;

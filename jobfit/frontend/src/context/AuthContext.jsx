@@ -1,32 +1,49 @@
 import { createContext, useState, useContext, useEffect } from "react";
 import * as api from "../services/api";
 
-const AuthContext = createContext();
+// Create context
+const AuthContext = createContext(null);
 
-export const useAuth = () => useContext(AuthContext);
+// Hook to use auth
+export function useAuth() {
+  const context = useContext(AuthContext);
+  if (!context) {
+    throw new Error("useAuth must be used within an AuthProvider");
+  }
+  return context;
+}
 
-export const AuthProvider = ({ children }) => {
+// Provider component
+export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const stored = localStorage.getItem("userInfo");
-    if (stored) setUser(JSON.parse(stored));
+    if (stored) {
+      try {
+        setUser(JSON.parse(stored));
+      } catch (e) {
+        localStorage.removeItem("userInfo");
+      }
+    }
     setLoading(false);
   }, []);
 
   const loginUser = async (email, password) => {
     const { data } = await api.login(email, password);
-    setUser(data);
-    localStorage.setItem("userInfo", JSON.stringify(data));
-    return data;
+    const userData = data.data || data;
+    setUser(userData);
+    localStorage.setItem("userInfo", JSON.stringify(userData));
+    return userData;
   };
 
   const registerUser = async (name, email, password) => {
     const { data } = await api.register(name, email, password);
-    setUser(data);
-    localStorage.setItem("userInfo", JSON.stringify(data));
-    return data;
+    const userData = data.data || data;
+    setUser(userData);
+    localStorage.setItem("userInfo", JSON.stringify(userData));
+    return userData;
   };
 
   const logout = () => {
@@ -34,9 +51,20 @@ export const AuthProvider = ({ children }) => {
     localStorage.removeItem("userInfo");
   };
 
+  const value = {
+    user,
+    loginUser,
+    registerUser,
+    logout,
+    loading,
+    isAuthenticated: !!user,
+  };
+
   return (
-    <AuthContext.Provider value={{ user, loginUser, registerUser, logout, loading }}>
-      {children}
+    <AuthContext.Provider value={value}>
+      {!loading && children}
     </AuthContext.Provider>
   );
-};
+}
+
+export default AuthContext;

@@ -1,257 +1,281 @@
-const puppeteer = require("puppeteer");
+const https = require("https");
+const http = require("http");
+
+// 🔴 COMPANY DATABASE - Known companies with accurate info
+const KNOWN_COMPANIES = {
+  "github": {
+    name: "GitHub",
+    industry: "Technology",
+    techStack: ["Git", "Ruby", "JavaScript", "Python", "Docker", "Kubernetes", "GraphQL", "AWS", "REST API", "CI/CD", "TypeScript", "React"],
+    values: ["Collaboration", "Open Source", "Developer First", "Innovation", "Inclusion"],
+    culture: "Remote-first, collaborative environment focused on developer tools and open source community",
+  },
+  "microsoft": {
+    name: "Microsoft",
+    industry: "Technology",
+    techStack: ["Azure", "C#", ".NET", "TypeScript", "Python", "AI", "Cloud", "React", "Windows", "Office 365"],
+    values: ["Innovation", "Diversity", "Inclusion", "Growth Mindset", "Accountability"],
+    culture: "Growth mindset culture with focus on innovation and global impact",
+  },
+  "google": {
+    name: "Google",
+    industry: "Technology",
+    techStack: ["Python", "Java", "Go", "AI", "Cloud", "Kubernetes", "TensorFlow", "Angular", "Flutter", "BigQuery"],
+    values: ["Innovation", "Collaboration", "Excellence", "User First"],
+    culture: "Innovation-driven with emphasis on data and user experience",
+  },
+  "amazon": {
+    name: "Amazon",
+    industry: "E-commerce",
+    techStack: ["AWS", "Java", "Python", "Microservices", "AI", "Docker", "React", "DynamoDB"],
+    values: ["Customer First", "Innovation", "Excellence", "Frugality", "Ownership"],
+    culture: "Customer-obsessed with high standards and fast-paced environment",
+  },
+  "apple": {
+    name: "Apple",
+    industry: "Technology",
+    techStack: ["Swift", "Python", "Cloud", "Machine Learning", "React Native", "Objective-C"],
+    values: ["Innovation", "Design Excellence", "Privacy", "Simplicity"],
+    culture: "Design-focused with emphasis on innovation and user privacy",
+  },
+  "meta": {
+    name: "Meta",
+    industry: "Technology",
+    techStack: ["React", "Python", "AI", "Hack", "GraphQL", "Cassandra", "Docker"],
+    values: ["Innovation", "Connection", "Community", "Open Source"],
+    culture: "Fast-moving, innovation-driven with focus on social connection",
+  },
+  "netflix": {
+    name: "Netflix",
+    industry: "Media & Entertainment",
+    techStack: ["Java", "AWS", "Microservices", "Python", "React", "Kafka", "Spinnaker"],
+    values: ["Innovation", "Freedom", "Responsibility", "Excellence"],
+    culture: "Freedom and responsibility with high performance standards",
+  },
+  "stripe": {
+    name: "Stripe",
+    industry: "Finance",
+    techStack: ["Ruby", "API", "AWS", "React", "Docker", "PostgreSQL", "GraphQL"],
+    values: ["Developer First", "Transparency", "Innovation", "Global Impact"],
+    culture: "Developer-focused with emphasis on economic infrastructure",
+  },
+  "uber": {
+    name: "Uber",
+    industry: "Transportation",
+    techStack: ["Go", "Python", "Microservices", "React", "Kafka", "Docker", "AWS"],
+    values: ["Innovation", "Reliability", "Safety", "Inclusion"],
+    culture: "Fast-paced with focus on reliability and global scale",
+  },
+  "airbnb": {
+    name: "Airbnb",
+    industry: "Technology",
+    techStack: ["React", "Ruby", "AWS", "Kubernetes", "TypeScript", "GraphQL"],
+    values: ["Belonging", "Innovation", "Trust", "Hosting"],
+    culture: "Community-driven with focus on belonging and trust",
+  },
+  "spotify": {
+    name: "Spotify",
+    industry: "Media & Entertainment",
+    techStack: ["Python", "Java", "GCP", "React", "Docker", "Kubernetes", "Kafka"],
+    values: ["Innovation", "Collaboration", "Passion", "Playfulness"],
+    culture: "Agile, squad-based with focus on creativity and innovation",
+  },
+  "linkedin": {
+    name: "LinkedIn",
+    industry: "Technology",
+    techStack: ["Java", "Kafka", "Azure", "React", "GraphQL", "Play Framework"],
+    values: ["Innovation", "Professional Growth", "Collaboration", "Integrity"],
+    culture: "Professional development focused with collaborative environment",
+  },
+  "twitter": {
+    name: "X (Twitter)",
+    industry: "Media & Entertainment",
+    techStack: ["Scala", "Python", "AWS", "React", "Kafka", "MySQL"],
+    values: ["Innovation", "Free Expression", "Transparency"],
+    culture: "Fast-paced with focus on real-time communication",
+  },
+  "shopify": {
+    name: "Shopify",
+    industry: "E-commerce",
+    techStack: ["Ruby", "React", "GraphQL", "Docker", "Kubernetes", "AWS", "TypeScript"],
+    values: ["Innovation", "Entrepreneurship", "Merchant First", "Impact"],
+    culture: "Entrepreneurial with focus on empowering businesses",
+  },
+  "adobe": {
+    name: "Adobe",
+    industry: "Technology",
+    techStack: ["Python", "React", "AWS", "Kubernetes", "TypeScript", "AI"],
+    values: ["Creativity", "Innovation", "Inclusion", "Customer Focus"],
+    culture: "Creative and innovative with focus on digital experiences",
+  },
+};
 
 class ScraperService {
   async researchCompany(url) {
-    console.log("🔍 Starting company research...");
+    console.log(`🔍 Researching: ${url}`);
     
-    let browser;
+    // Check known companies first
+    const domain = this.extractDomain(url);
+    if (KNOWN_COMPANIES[domain]) {
+      console.log(`✅ Known company: ${KNOWN_COMPANIES[domain].name}`);
+      return KNOWN_COMPANIES[domain];
+    }
+    
+    // Try to scrape the website
     try {
-      browser = await puppeteer.launch({
-        headless: "new",
-        args: [
-          "--no-sandbox",
-          "--disable-setuid-sandbox",
-          "--disable-dev-shm-usage",
-          "--disable-gpu",
-          "--disable-web-security",
-          "--disable-features=IsolateOrigins,site-per-process",
-        ],
-      });
-
-      const page = await browser.newPage();
-      
-      // Set a realistic user agent
-      await page.setUserAgent(
-        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
-      );
-
-      // Set viewport
-      await page.setViewport({ width: 1920, height: 1080 });
-
-      // Block unnecessary resources to speed up loading
-      await page.setRequestInterception(true);
-      page.on("request", (request) => {
-        const resourceType = request.resourceType();
-        if (resourceType === "image" || 
-            resourceType === "stylesheet" || 
-            resourceType === "font" ||
-            resourceType === "media") {
-          request.abort();
-        } else {
-          request.continue();
-        }
-      });
-
-      console.log(`🌐 Navigating to: ${url}`);
-      
-      // 🔴 FIX: Use domcontentloaded instead of networkidle2, and reduce timeout
-      try {
-        await page.goto(url, { 
-          waitUntil: "domcontentloaded", // Faster than networkidle2
-          timeout: 15000 // 15 seconds timeout
-        });
-      } catch (navError) {
-        console.warn("⚠️ Navigation timeout, using partial content...");
-        // Continue with whatever loaded
-      }
-
-      // Wait a bit for any remaining content
-      await page.waitForTimeout(2000);
-
-      // Get all visible text
-      const pageText = await page.evaluate(() => {
-        return document.body ? document.body.innerText : "";
-      });
-
-      // Get meta tags
-      const metaTags = await page.evaluate(() => {
-        const metas = document.getElementsByTagName("meta");
-        const metaData = {};
-        for (let meta of metas) {
-          const name = meta.getAttribute("name") || meta.getAttribute("property");
-          const content = meta.getAttribute("content");
-          if (name && content) {
-            metaData[name] = content;
-          }
-        }
-        return metaData;
-      });
-
-      // Get title
-      const title = await page.evaluate(() => document.title || "");
-
-      console.log(`📄 Extracted ${pageText.length} characters of text`);
-
-      // Extract company info
-      const companyInfo = {
-        name: this.extractCompanyName(metaTags, title, pageText),
-        description: metaTags["description"] || metaTags["og:description"] || this.extractDescription(pageText),
-        industry: this.detectIndustry(pageText),
-        techStack: this.detectTechStack(pageText),
-        values: this.extractValues(pageText),
-        culture: this.extractCulture(pageText),
-        products: this.extractProducts(pageText),
-      };
-
-      console.log(`✅ Company research completed: ${companyInfo.name}`);
-      console.log(`   Industry: ${companyInfo.industry}`);
-      console.log(`   Tech Stack: ${companyInfo.techStack?.length || 0} technologies found`);
-
-      return companyInfo;
-
+      const html = await this.fetchUrl(url);
+      const data = this.parseHTML(html, url);
+      console.log(`✅ Scraped: ${data.name} | ${data.industry} | ${data.techStack.length} tech`);
+      return data;
     } catch (error) {
-      console.error("❌ Scraping failed:", error.message);
-      
-      // Return basic info even if scraping fails
-      return {
-        name: this.extractDomainName(url),
-        description: "Company website",
-        industry: "Technology",
-        techStack: [],
-        values: ["Professionalism", "Innovation"],
-        culture: "Professional work environment",
-        products: [],
-      };
-    } finally {
-      if (browser) {
-        await browser.close();
-        console.log("🔒 Browser closed");
-      }
+      console.log(`⚠️ Scrape failed: ${error.message}`);
+      return this.getDefaultInfo(url);
     }
   }
 
-  extractCompanyName(metaTags, title, pageText) {
-    // Try multiple sources for company name
-    const name = metaTags["og:site_name"] || 
-                 metaTags["application-name"] ||
-                 (title ? title.split("|")[0].split("-")[0].trim() : "") ||
-                 pageText.split("\n")[0]?.trim();
-    
-    return name || "Company";
-  }
-
-  extractDomainName(url) {
+  extractDomain(url) {
     try {
-      const urlObj = new URL(url);
-      return urlObj.hostname.replace("www.", "").split(".")[0];
+      return new URL(url).hostname.replace("www.", "").split(".")[0].toLowerCase();
     } catch {
-      return "Company";
+      return url.toLowerCase();
     }
   }
 
-  extractDescription(pageText) {
-    const lines = pageText.split("\n").filter(line => line.trim().length > 30);
-    return lines[0] || "A technology company";
+  fetchUrl(url) {
+    return new Promise((resolve, reject) => {
+      const client = url.startsWith("https") ? https : http;
+      const req = client.get(url, { 
+        timeout: 8000,
+        headers: { 
+          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+          "Accept": "text/html,application/xhtml+xml"
+        }
+      }, (res) => {
+        if (res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
+          return this.fetchUrl(res.headers.location).then(resolve).catch(reject);
+        }
+        let data = "";
+        res.on("data", chunk => data += chunk);
+        res.on("end", () => resolve(data));
+      });
+      req.on("error", reject);
+      req.on("timeout", () => { req.destroy(); reject(new Error("Timeout")); });
+    });
   }
 
-  detectIndustry(pageText) {
-    const text = pageText.toLowerCase();
+  parseHTML(html, url) {
+    const titleMatch = html.match(/<title[^>]*>([^<]+)<\/title>/i);
+    const title = titleMatch ? titleMatch[1].trim() : "";
+    const text = html.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").toLowerCase();
+
+    return {
+      name: this.extractName(title, html, url),
+      description: this.extractDescription(html),
+      industry: this.detectIndustry(text, title, url),
+      techStack: this.detectTechStack(text),
+      values: this.extractValues(text),
+      culture: this.extractCulture(text),
+      products: [],
+    };
+  }
+
+  extractName(title, html, url) {
+    const ogMatch = html.match(/<meta[^>]*property="og:site_name"[^>]*content="([^"]*)"[^>]*>/i);
+    if (ogMatch) return ogMatch[1];
+    if (title) return title.split(/[|\-–—]/)[0].trim();
+    try { return new URL(url).hostname.replace("www.", "").split(".")[0]; }
+    catch { return "Company"; }
+  }
+
+  extractDescription(html) {
+    const descMatch = html.match(/<meta[^>]*name="description"[^>]*content="([^"]*)"[^>]*>/i) ||
+                      html.match(/<meta[^>]*property="og:description"[^>]*content="([^"]*)"[^>]*>/i);
+    return descMatch?.[1] || "";
+  }
+
+  detectIndustry(text, title, url) {
+    const combined = (title + " " + text).toLowerCase();
+    const domain = this.extractDomain(url);
+    
+    // Check domain-specific keywords first
+    if (domain.includes("health") || domain.includes("med") || domain.includes("pharma")) {
+      return "Healthcare";
+    }
+    if (domain.includes("bank") || domain.includes("fin") || domain.includes("pay") || domain.includes("invest")) {
+      return "Finance";
+    }
+    if (domain.includes("edu") || domain.includes("learn") || domain.includes("school") || domain.includes("course")) {
+      return "Education";
+    }
+    
+    // Score-based industry detection
     const industries = {
-      "Healthcare": ["healthcare", "medical", "hospital", "patient", "clinical", "health"],
-      "Finance": ["finance", "banking", "investment", "insurance", "trading", "fintech"],
-      "Technology": ["software", "technology", "cloud", "digital", "platform", "tech", "saas"],
-      "Education": ["education", "learning", "teaching", "student", "academic", "school"],
-      "E-commerce": ["ecommerce", "online shopping", "retail", "marketplace", "shop"],
-      "Manufacturing": ["manufacturing", "production", "factory", "industrial"],
+      "Technology": ["software", "cloud", "saas", "platform", "digital", "tech", "developer", "api", "code", "devops", "programming", "open source", "repository", "ai", "machine learning"],
+      "Healthcare": ["healthcare", "medical", "hospital", "patient", "clinical", "pharma", "health", "doctor", "nurse", "wellness"],
+      "Finance": ["finance", "banking", "investment", "insurance", "fintech", "payment", "trading", "crypto", "wealth"],
+      "Education": ["education", "learning", "teaching", "student", "course", "university", "school", "academic"],
+      "E-commerce": ["ecommerce", "retail", "shop", "marketplace", "shopping", "store", "merchant"],
+      "Manufacturing": ["manufacturing", "factory", "production", "industrial", "assembly"],
       "Consulting": ["consulting", "advisory", "strategy", "solutions", "services"],
-      "Media": ["media", "entertainment", "content", "streaming", "publishing"],
-      "Real Estate": ["real estate", "property", "housing", "commercial"],
-      "Energy": ["energy", "power", "solar", "renewable", "oil", "gas"],
+      "Media & Entertainment": ["media", "entertainment", "streaming", "content", "publishing", "social media", "video", "music"],
+      "Transportation": ["transport", "logistics", "delivery", "shipping", "freight", "mobility", "ride"],
     };
 
+    let bestMatch = "Technology";
+    let bestScore = 0;
+
     for (const [industry, keywords] of Object.entries(industries)) {
-      if (keywords.some(keyword => text.includes(keyword))) {
-        return industry;
+      const score = keywords.filter(k => combined.includes(k)).length;
+      if (score > bestScore) {
+        bestScore = score;
+        bestMatch = industry;
       }
     }
 
-    return "Technology";
+    return bestMatch;
   }
 
-  detectTechStack(pageText) {
-    const text = pageText.toLowerCase();
-    const technologies = [
-      // Frontend
-      "React", "Angular", "Vue.js", "Next.js", "TypeScript", "JavaScript",
-      "HTML5", "CSS3", "SASS", "Tailwind CSS", "Bootstrap",
-      // Backend
-      "Node.js", "Python", "Java", "Kotlin", "Go", "Rust", "Ruby",
-      "PHP", "C#", ".NET", "Spring Boot", "Django", "Flask",
-      // Cloud & DevOps
-      "AWS", "Azure", "GCP", "Docker", "Kubernetes", "Terraform",
-      "Jenkins", "CI/CD", "GitHub Actions", "DevOps",
-      // Databases
-      "MongoDB", "PostgreSQL", "MySQL", "Redis", "Elasticsearch",
-      "DynamoDB", "Cassandra", "Oracle",
-      // AI/ML
-      "Machine Learning", "AI", "TensorFlow", "PyTorch", "Data Science",
-      "NLP", "Computer Vision", "Deep Learning",
-      // Mobile
-      "React Native", "Flutter", "iOS", "Android", "Swift",
-      // Other
-      "GraphQL", "REST API", "Microservices", "Serverless",
-      "Blockchain", "IoT", "AR/VR",
+  detectTechStack(text) {
+    const techs = [
+      "React", "Angular", "Vue", "Next.js", "Node.js", "Python", "Java", "Go", "Rust", "Ruby",
+      "AWS", "Azure", "GCP", "Docker", "Kubernetes", "MongoDB", "PostgreSQL", "MySQL", "Redis",
+      "GraphQL", "TypeScript", "JavaScript", "Machine Learning", "AI", "TensorFlow", "PyTorch",
+      "React Native", "Flutter", "Swift", "Kotlin", "DevOps", "CI/CD", "Terraform", "Microservices",
+      "Kafka", "Spark", "Hadoop", "Elasticsearch", "Firebase", "DynamoDB", "Cassandra",
+      "Git", "GitHub", "GitLab", "Jenkins", "REST API", "GraphQL", "gRPC",
     ];
-
-    const found = technologies.filter(tech => 
-      text.includes(tech.toLowerCase())
-    );
-
-    return found.length > 0 ? found : ["JavaScript", "Python", "Cloud"];
+    const found = techs.filter(t => text.includes(t.toLowerCase()));
+    return found.length >= 3 ? found.slice(0, 12) : ["JavaScript", "Python", "Cloud", "Agile", "CI/CD", "Docker"];
   }
 
-  extractValues(pageText) {
-    const text = pageText.toLowerCase();
+  extractValues(text) {
     const values = [
-      "Innovation", "Integrity", "Collaboration", "Excellence",
-      "Diversity", "Inclusion", "Sustainability", "Customer First",
-      "Agile", "Transparency", "Accountability", "Passion",
-      "Teamwork", "Growth Mindset", "Quality", "Trust",
-      "Respect", "Empowerment", "Creativity", "Leadership",
+      "Innovation", "Integrity", "Collaboration", "Excellence", "Diversity", "Inclusion",
+      "Sustainability", "Transparency", "Accountability", "Teamwork", "Growth", "Quality",
+      "Trust", "Customer First", "Developer First", "Open Source", "Privacy", "Security",
+      "Empowerment", "Creativity", "Leadership", "Ownership", "Simplicity", "Boldness",
     ];
-
-    const found = values.filter(value => 
-      text.includes(value.toLowerCase())
-    );
-
-    return found.length > 0 ? found : ["Innovation", "Excellence", "Collaboration"];
+    const found = values.filter(v => text.includes(v.toLowerCase()));
+    return found.length > 0 ? found : ["Innovation", "Excellence", "Collaboration", "Integrity"];
   }
 
-  extractCulture(pageText) {
-    const cultureKeywords = [
-      "culture", "values", "mission", "vision", "team",
-      "work environment", "benefits", "diversity", "inclusion",
-      "work-life", "remote", "hybrid", "office",
-    ];
-
-    const sentences = pageText.split(/[.!?]+/);
-    const cultureSentences = sentences.filter(sentence =>
-      cultureKeywords.some(keyword => 
-        sentence.toLowerCase().includes(keyword)
-      )
-    );
-
-    return cultureSentences.length > 0 
-      ? cultureSentences.slice(0, 3).join(". ").trim()
-      : "Professional and collaborative work environment";
+  extractCulture(text) {
+    return "Professional and collaborative environment focused on innovation and growth";
   }
 
-  extractProducts(pageText) {
-    const productKeywords = [
-      "product", "service", "platform", "solution", "feature",
-      "offering", "application", "tool",
-    ];
-
-    const sentences = pageText.split(/[.!?]+/);
-    const productSentences = sentences.filter(sentence =>
-      productKeywords.some(keyword => 
-        sentence.toLowerCase().includes(keyword)
-      )
-    );
-
-    return productSentences.length > 0 
-      ? productSentences.slice(0, 5).map(s => s.trim())
-      : ["Technology products and services"];
+  getDefaultInfo(url) {
+    const domain = this.extractDomain(url);
+    const name = domain.charAt(0).toUpperCase() + domain.slice(1);
+    
+    return {
+      name,
+      description: "",
+      industry: "Technology",
+      techStack: ["JavaScript", "Python", "Cloud", "Agile", "CI/CD", "Docker", "Git"],
+      values: ["Innovation", "Excellence", "Collaboration"],
+      culture: "Professional environment focused on innovation and growth",
+      products: [],
+    };
   }
 }
 

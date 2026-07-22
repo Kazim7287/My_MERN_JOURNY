@@ -17,24 +17,32 @@ API.interceptors.request.use((config) => {
   return config;
 });
 
+API.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    if (error.response?.status === 401) {
+      localStorage.removeItem("userInfo");
+      window.location.href = "/login";
+    }
+    return Promise.reject(error);
+  }
+);
+
 // Auth
-export const login = (email, password) => 
-  API.post("/users/login", { email, password });
+export const login = (email, password) => API.post("/users/login", { email, password });
+export const register = (name, email, password) => API.post("/users/register", { name, email, password });
 
-export const register = (name, email, password) => 
-  API.post("/users/register", { name, email, password });
-
-// Resume
-export const enhanceResume = (formData) => 
-  API.post("/resume/enhance", formData, {
-    headers: { "Content-Type": "multipart/form-data" },
-  });
-
+// Resume CRUD
+export const enhanceResume = (formData) => API.post("/resume/enhance", formData, {
+  headers: { "Content-Type": "multipart/form-data" },
+});
 export const getResume = (id) => API.get(`/resume/${id}`);
 export const getHistory = () => API.get("/resume/history");
+export const deleteResume = (id) => API.delete(`/resume/${id}`);
+export const reEnhanceResume = (id, companyUrl) => API.post(`/resume/${id}/re-enhance`, { companyUrl });
 
-// 🔴 Download URL with token
-export const getDownloadUrl = (id) => {
+// Download
+export const downloadUrl = (id) => {
   const user = localStorage.getItem("userInfo");
   if (user) {
     try {
@@ -44,3 +52,5 @@ export const getDownloadUrl = (id) => {
   }
   return null;
 };
+
+export default API;

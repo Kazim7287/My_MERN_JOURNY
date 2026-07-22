@@ -1,0 +1,265 @@
+/* ============ RESUME TEMPLATE ============ */
+.resume-template {
+  max-width: 800px;
+  margin: 20px auto;
+  padding: 40px 50px;
+  background: white;
+  box-shadow: 0 4px 30px rgba(0, 0, 0, 0.1);
+  border-radius: 8px;
+  font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+  color: #1a1a2e;
+  line-height: 1.6;
+  position: relative;
+}
+
+/* ATS Badge */
+.ats-badge {
+  position: absolute;
+  top: 20px;
+  right: 20px;
+  background: linear-gradient(135deg, #4caf50, #2e7d32);
+  color: white;
+  padding: 8px 16px;
+  border-radius: 20px;
+  font-size: 14px;
+  box-shadow: 0 2px 10px rgba(76, 175, 80, 0.3);
+}
+
+.ats-badge strong {
+  font-size: 18px;
+}
+
+/* Header */
+.resume-header {
+  text-align: center;
+  border-bottom: 3px solid #1a1a2e;
+  padding-bottom: 20px;
+  margin-bottom: 25px;
+}
+
+.resume-name {
+  font-size: 36px;
+  font-weight: 800;
+  color: #1a1a2e;
+  margin: 0 0 5px 0;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+}
+
+.resume-title {
+  font-size: 18px;
+  color: #555;
+  font-weight: 500;
+  margin: 0 0 15px 0;
+}
+
+.resume-contact {
+  display: flex;
+  justify-content: center;
+  gap: 20px;
+  flex-wrap: wrap;
+  font-size: 14px;
+  color: #666;
+}
+
+.resume-contact span {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+/* Sections */
+.resume-section {
+  margin-bottom: 25px;
+  padding-bottom: 20px;
+  border-bottom: 1px solid #e0e0e0;
+}
+
+.resume-section:last-child {
+  border-bottom: none;
+}
+
+.section-title {
+  font-size: 16px;
+  font-weight: 700;
+  color: #1a1a2e;
+  text-transform: uppercase;
+  letter-spacing: 2px;
+  margin: 0 0 15px 0;
+  padding-bottom: 5px;
+  border-bottom: 2px solid #e94560;
+  display: inline-block;
+}
+
+/* Summary */
+.summary-text {
+  font-size: 15px;
+  color: #444;
+  line-height: 1.8;
+  margin: 0;
+}
+
+/* Skills Grid */
+.skills-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.skill-tag {
+  background: linear-gradient(135deg, #1a1a2e, #16213e);
+  color: white;
+  padding: 8px 16px;
+  border-radius: 20px;
+  font-size: 13px;
+  font-weight: 500;
+  transition: transform 0.2s;
+}
+
+.skill-tag:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(26, 26, 46, 0.3);
+}
+
+/* Experience */
+.experience-item {
+  margin-bottom: 20px;
+}
+
+.experience-header {
+  display: flex;
+  align-items: baseline;
+  gap: 15px;
+  margin-bottom: 10px;
+  flex-wrap: wrap;
+}
+
+.job-title {
+  font-size: 16px;
+  font-weight: 700;
+  color: #1a1a2e;
+  margin: 0;
+}
+
+.job-company {
+  font-size: 15px;
+  color: #e94560;
+  font-weight: 600;
+}
+
+.job-dates {
+  font-size: 13px;
+  color: #888;
+  margin-left: auto;
+}
+
+.achievements-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.achievement-item {
+  position: relative;
+  padding-left: 20px;
+  margin-bottom: 8px;
+  font-size: 14px;
+  color: #555;
+  line-height: 1.6;
+}
+
+.achievement-item::before {
+  content: "▸";
+  position: absolute;
+  left: 0;
+  color: #e94560;
+  font-weight: bold;
+}
+
+/* Education */
+.education-item {
+  display: flex;
+  align-items: baseline;
+  gap: 15px;
+  flex-wrap: wrap;
+}
+
+.edu-degree {
+  font-size: 15px;
+  font-weight: 700;
+  color: #1a1a2e;
+  margin: 0;
+}
+
+.edu-school {
+  font-size: 14px;
+  color: #666;
+}
+
+.edu-year {
+  font-size: 13px;
+  color: #888;
+  margin-left: auto;
+}
+
+/* Certifications */
+.cert-item {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  padding: 8px 0;
+}
+
+.cert-name {
+  font-weight: 600;
+  color: #1a1a2e;
+}
+
+.cert-issuer {
+  color: #666;
+  font-size: 14px;
+}
+
+.cert-year {
+  color: #888;
+  font-size: 13px;
+  margin-left: auto;
+}
+
+/* Print Styles */
+@media print {
+  .resume-template {
+    box-shadow: none;
+    padding: 20px 0;
+    max-width: 100%;
+  }
+  
+  .ats-badge {
+    position: static;
+    display: inline-block;
+    margin-bottom: 20px;
+  }
+  
+  .skill-tag {
+    background: #1a1a2e !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+}
+
+/* Responsive */
+@media (max-width: 600px) {
+  .resume-template {
+    padding: 20px;
+  }
+  
+  .resume-name {
+    font-size: 24px;
+  }
+  
+  .resume-contact {
+    flex-direction: column;
+    align-items: center;
+    gap: 5px;
+  }
+}
